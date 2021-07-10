@@ -1,0 +1,78 @@
+.Dd Jul 10, 2021
+.Dt IOCTL 1
+.Sh NAME
+.Nm ioctl
+.Nd calls arbitrary ioctl on devices
+.Sh SYNOPSIS
+.Nm
+.Op Fl d Ar DIR
+.Op Fl s Ar SIZE
+.Op Fl v Ar VALUE
+.Op Fl q
+.Ar FILEDEV
+.Ar IOCTL_NUM
+.Nm
+.Op Fl L
+.Sh DESCRIPTION
+.Nm
+is a command-line utility for performing
+.Xr ioctl 2
+system calls on devices.
+.Pp
+A buffer is allocated and passed as an argument of ioctl. If direction is
+not `NONE`, buffer content is read/write on standard input/ouput.
+.Pp
+.Ar IOCTL_NUM
+can either be specified as a number
+.Po in decimal or
+.Dq "0x"
+.Ns -prefixed hex
+.Pc ,
+or as a symbolic name like 
+.Li VIDIOC_QUERYCAP .
+In order to work, symbolic names have to be defined during compilation.
+.Pp
+Direction and buffer size are deduced from
+.Ar IOCTL_NUM .
+However, it is possible to force these parameters using
+.Fl d
+and
+.Fl s .
+.Ss Options
+.Bl -tag -width Ds
+.It Fl d Ar DIR
+force the direction:
+0 = NONE,
+1 = W (write-only),
+2 = R (read-only),
+3 = RW (read and write).
+.It Fl s Ar SIZE
+force buffer size.
+.It Fl v Ar VALUE
+pass this value as ioctl argument instead of a pointer on a buffer.
+Forces direction to NONE.
+.It Fl q
+write less verbose output and errors.
+.It Fl L
+instead of normal behavior, list known ioctls.
+.It Fl h , Fl \-help
+print usage and exit.
+.El
+.Sh EXAMPLES
+Query capabilities of your webcam:
+.D1 ioctl /dev/video0 VIDIOC_QUERYCAP | hexdump -C
+.Pp
+Save parameters of serial port
+.Po 0x5401 is the ioctl number for
+.Li TCGETS
+.Pc :
+.D1 ioctl /dev/ttyS0 0x5401 -s 1024 -d R > params
+.Sh AUTHOR
+.Nm
+is written by
+.An Jérôme Pouiller.
+.Pp
+This manual page was written by
+.An Dean Scarff ,
+based on the README by
+.An Jérôme Pouiller.
