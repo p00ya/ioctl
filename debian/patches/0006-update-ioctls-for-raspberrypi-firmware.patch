@@ -1,0 +1,386 @@
+From: Dean Scarff <dos@scarff.id.au>
+Date: Sat, 10 Jul 2021 14:00:47 +1000
+Subject: update ioctls for raspberrypi-firmware
+
+Generate ioctls using linux-libc-dev 1:1.20210527-1
+---
+ gen_ioctls_list.sh |   2 ++
+ ioctls_list.c      | 103 ++++++++++++++++++++++++++++++++++++++---------------
+ ioctls_list.h      |   1 +
+ 3 files changed, 78 insertions(+), 28 deletions(-)
+
+diff --git a/gen_ioctls_list.sh b/gen_ioctls_list.sh
+index a6d54dc..947696c 100755
+--- a/gen_ioctls_list.sh
++++ b/gen_ioctls_list.sh
+@@ -40,6 +40,8 @@ EXCLUDE_IOCTLS+=" -e MMC_IOC_MULTI_CMD"         # Missing include
+ EXCLUDE_IOCTLS+=" -e MMC_IOC_CMD"               # Missing include
+ EXCLUDE_IOCTLS+=" -e BLKELVGET"                 # Inside #if 0
+ EXCLUDE_IOCTLS+=" -e BLKELVSET"                 # Inside #if 0
++EXCLUDE_IOCTLS+=" -e DMA_BUF_SET_NAME_A"        # Missing typedef
++EXCLUDE_IOCTLS+=" -e DMA_BUF_SET_NAME_B"        # Missing typedef
+ 
+ # There are multiple problems:
+ #  - Some declarations do not match regular expression -> Not yet supported
+diff --git a/ioctls_list.c b/ioctls_list.c
+index d471ef8..f6d479a 100644
+--- a/ioctls_list.c
++++ b/ioctls_list.c
+@@ -9,9 +9,6 @@
+ #include <linux/types.h>
+ 
+ #include <asm-generic/ioctls.h>
+-#include <asm/mce.h>
+-#include <asm/msr.h>
+-#include <asm/mtrr.h>
+ #include <linux/agpgart.h>
+ #include <linux/android/binderfs.h>
+ #include <linux/android/binder.h>
+@@ -43,6 +40,7 @@
+ #include <linux/chio.h>
+ #include <linux/cm4000_cs.h>
+ #include <linux/dma-buf.h>
++#include <linux/dma-heap.h>
+ #include <linux/dm-ioctl.h>
+ #include <linux/dn.h>
+ #include <linux/dvb/audio.h>
+@@ -63,7 +61,6 @@
+ #include <linux/fsverity.h>
+ #include <linux/fuse.h>
+ #include <linux/genwqe/genwqe_card.h>
+-#include <linux/gigaset_dev.h>
+ #include <linux/gpio.h>
+ #include <linux/gsmmux.h>
+ #include <linux/hiddev.h>
+@@ -90,12 +87,12 @@
+ #include <linux/media.h>
+ #include <linux/mei.h>
+ #include <linux/meye.h>
+-#include <linux/mic_ioctl.h>
+ #include <linux/mmtimer.h>
+ #include <linux/msdos_fs.h>
+ #include <linux/mtio.h>
+ #include <linux/nbd.h>
+ #include <linux/ndctl.h>
++#include <linux/nitro_enclaves.h>
+ #include <linux/nsfs.h>
+ #include <linux/nvme_ioctl.h>
+ #include <linux/nvram.h>
+@@ -115,6 +112,7 @@
+ #include <linux/random.h>
+ #include <linux/raw.h>
+ #include <linux/reiserfs_fs.h>
++#include <linux/remoteproc_cdev.h>
+ #include <linux/rfkill.h>
+ #include <linux/rio_cm_cdev.h>
+ #include <linux/rpmsg.h>
+@@ -143,20 +141,25 @@
+ #include <linux/usb/gadgetfs.h>
+ #include <linux/usb/g_printer.h>
+ #include <linux/usb/g_uvc.h>
++#include <linux/usb/raw_gadget.h>
+ #include <linux/usb/tmc.h>
+ #include <linux/userfaultfd.h>
+ #include <linux/uvcvideo.h>
+ #include <linux/v4l2-subdev.h>
++#include <linux/vboxguest.h>
+ #include <linux/vfio.h>
+ #include <linux/vhost.h>
+ #include <linux/videodev2.h>
+ #include <linux/vm_sockets.h>
+ #include <linux/vtpm_proxy.h>
+ #include <linux/watchdog.h>
++#include <linux/watch_queue.h>
+ #include <linux/wmi.h>
+ #include <misc/cxl.h>
+ #include <misc/fastrpc.h>
+ #include <misc/ocxl.h>
++#include <misc/uacce/hisi_qm.h>
++#include <misc/uacce/uacce.h>
+ #include <misc/xilinx_sdfec.h>
+ #include <mtd/mtd-abi.h>
+ #include <mtd/ubi-user.h>
+@@ -336,6 +339,7 @@ const struct ioctl_entry ioctls_list[] = {
+     { "BTRFS_IOC_SNAP_CREATE", BTRFS_IOC_SNAP_CREATE, -1, -1 }, // linux/btrfs.h
+     { "BTRFS_IOC_SNAP_CREATE_V2", BTRFS_IOC_SNAP_CREATE_V2, -1, -1 }, // linux/btrfs.h
+     { "BTRFS_IOC_SNAP_DESTROY", BTRFS_IOC_SNAP_DESTROY, -1, -1 }, // linux/btrfs.h
++    { "BTRFS_IOC_SNAP_DESTROY_V2", BTRFS_IOC_SNAP_DESTROY_V2, -1, -1 }, // linux/btrfs.h
+     { "BTRFS_IOC_SPACE_INFO", BTRFS_IOC_SPACE_INFO, -1, -1 }, // linux/btrfs.h
+     { "BTRFS_IOC_START_SYNC", BTRFS_IOC_START_SYNC, -1, -1 }, // linux/btrfs.h
+     { "BTRFS_IOC_SUBVOL_CREATE", BTRFS_IOC_SUBVOL_CREATE, -1, -1 }, // linux/btrfs.h
+@@ -416,17 +420,24 @@ const struct ioctl_entry ioctls_list[] = {
+     { "CXL_IOCTL_VALIDATE_IMAGE", CXL_IOCTL_VALIDATE_IMAGE, -1, -1 }, // misc/cxl.h
+     { "DELL_WMI_SMBIOS_CMD", DELL_WMI_SMBIOS_CMD, -1, -1 }, // linux/wmi.h
+     { "DFL_FPGA_CHECK_EXTENSION", DFL_FPGA_CHECK_EXTENSION, -1, -1 }, // linux/fpga-dfl.h
++    { "DFL_FPGA_FME_ERR_GET_IRQ_NUM", DFL_FPGA_FME_ERR_GET_IRQ_NUM, -1, -1 }, // linux/fpga-dfl.h
++    { "DFL_FPGA_FME_ERR_SET_IRQ", DFL_FPGA_FME_ERR_SET_IRQ, -1, -1 }, // linux/fpga-dfl.h
+     { "DFL_FPGA_FME_PORT_ASSIGN", DFL_FPGA_FME_PORT_ASSIGN, -1, -1 }, // linux/fpga-dfl.h
+     { "DFL_FPGA_FME_PORT_PR", DFL_FPGA_FME_PORT_PR, -1, -1 }, // linux/fpga-dfl.h
+     { "DFL_FPGA_FME_PORT_RELEASE", DFL_FPGA_FME_PORT_RELEASE, -1, -1 }, // linux/fpga-dfl.h
+     { "DFL_FPGA_GET_API_VERSION", DFL_FPGA_GET_API_VERSION, -1, -1 }, // linux/fpga-dfl.h
+     { "DFL_FPGA_PORT_DMA_MAP", DFL_FPGA_PORT_DMA_MAP, -1, -1 }, // linux/fpga-dfl.h
+     { "DFL_FPGA_PORT_DMA_UNMAP", DFL_FPGA_PORT_DMA_UNMAP, -1, -1 }, // linux/fpga-dfl.h
++    { "DFL_FPGA_PORT_ERR_GET_IRQ_NUM", DFL_FPGA_PORT_ERR_GET_IRQ_NUM, -1, -1 }, // linux/fpga-dfl.h
++    { "DFL_FPGA_PORT_ERR_SET_IRQ", DFL_FPGA_PORT_ERR_SET_IRQ, -1, -1 }, // linux/fpga-dfl.h
+     { "DFL_FPGA_PORT_GET_INFO", DFL_FPGA_PORT_GET_INFO, -1, -1 }, // linux/fpga-dfl.h
+     { "DFL_FPGA_PORT_GET_REGION_INFO", DFL_FPGA_PORT_GET_REGION_INFO, -1, -1 }, // linux/fpga-dfl.h
+     { "DFL_FPGA_PORT_RESET", DFL_FPGA_PORT_RESET, -1, -1 }, // linux/fpga-dfl.h
++    { "DFL_FPGA_PORT_UINT_GET_IRQ_NUM", DFL_FPGA_PORT_UINT_GET_IRQ_NUM, -1, -1 }, // linux/fpga-dfl.h
++    { "DFL_FPGA_PORT_UINT_SET_IRQ", DFL_FPGA_PORT_UINT_SET_IRQ, -1, -1 }, // linux/fpga-dfl.h
+     { "DMA_BUF_IOCTL_SYNC", DMA_BUF_IOCTL_SYNC, -1, -1 }, // linux/dma-buf.h
+     { "DMA_BUF_SET_NAME", DMA_BUF_SET_NAME, -1, -1 }, // linux/dma-buf.h
++    { "DMA_HEAP_IOCTL_ALLOC", DMA_HEAP_IOCTL_ALLOC, -1, -1 }, // linux/dma-heap.h
+     { "DM_DEV_ARM_POLL", DM_DEV_ARM_POLL, -1, -1 }, // linux/dm-ioctl.h
+     { "DM_DEV_CREATE", DM_DEV_CREATE, -1, -1 }, // linux/dm-ioctl.h
+     { "DM_DEV_REMOVE", DM_DEV_REMOVE, -1, -1 }, // linux/dm-ioctl.h
+@@ -482,6 +493,7 @@ const struct ioctl_entry ioctls_list[] = {
+     { "FASTRPC_IOCTL_ALLOC_DMA_BUFF", FASTRPC_IOCTL_ALLOC_DMA_BUFF, -1, -1 }, // misc/fastrpc.h
+     { "FASTRPC_IOCTL_FREE_DMA_BUFF", FASTRPC_IOCTL_FREE_DMA_BUFF, -1, -1 }, // misc/fastrpc.h
+     { "FASTRPC_IOCTL_INIT_ATTACH", FASTRPC_IOCTL_INIT_ATTACH, -1, -1 }, // misc/fastrpc.h
++    { "FASTRPC_IOCTL_INIT_ATTACH_SNS", FASTRPC_IOCTL_INIT_ATTACH_SNS, -1, -1 }, // misc/fastrpc.h
+     { "FASTRPC_IOCTL_INIT_CREATE", FASTRPC_IOCTL_INIT_CREATE, -1, -1 }, // misc/fastrpc.h
+     { "FASTRPC_IOCTL_INVOKE", FASTRPC_IOCTL_INVOKE, -1, -1 }, // misc/fastrpc.h
+     { "FASTRPC_IOCTL_MMAP", FASTRPC_IOCTL_MMAP, -1, -1 }, // misc/fastrpc.h
+@@ -489,7 +501,9 @@ const struct ioctl_entry ioctls_list[] = {
+     { "FAT_IOCTL_GET_ATTRIBUTES", FAT_IOCTL_GET_ATTRIBUTES, -1, -1 }, // linux/msdos_fs.h
+     { "FAT_IOCTL_GET_VOLUME_ID", FAT_IOCTL_GET_VOLUME_ID, -1, -1 }, // linux/msdos_fs.h
+     { "FAT_IOCTL_SET_ATTRIBUTES", FAT_IOCTL_SET_ATTRIBUTES, -1, -1 }, // linux/msdos_fs.h
++    { "FBIOCOPYAREA", FBIOCOPYAREA, -1, -1 }, // linux/fb.h
+     { "FBIO_CURSOR", FBIO_CURSOR, -1, -1 }, // linux/fb.h
++    { "FBIODMACOPY", FBIODMACOPY, -1, -1 }, // linux/fb.h
+     { "FBIO_GETCONTROL2", FBIO_GETCONTROL2, -1, -1 }, // linux/arcfb.h
+     { "FBIOGET_VBLANK", FBIOGET_VBLANK, -1, -1 }, // linux/fb.h
+     { "FBIO_RADEON_GET_MIRROR", FBIO_RADEON_GET_MIRROR, -1, -1 }, // linux/radeonfb.h
+@@ -558,6 +572,7 @@ const struct ioctl_entry ioctls_list[] = {
+     { "FS_IOC_FSGETXATTR", FS_IOC_FSGETXATTR, -1, -1 }, // linux/fs.h
+     { "FS_IOC_FSSETXATTR", FS_IOC_FSSETXATTR, -1, -1 }, // linux/fs.h
+     { "FS_IOC_GET_ENCRYPTION_KEY_STATUS", FS_IOC_GET_ENCRYPTION_KEY_STATUS, -1, -1 }, // linux/fscrypt.h
++    { "FS_IOC_GET_ENCRYPTION_NONCE", FS_IOC_GET_ENCRYPTION_NONCE, -1, -1 }, // linux/fscrypt.h
+     { "FS_IOC_GET_ENCRYPTION_POLICY_EX", FS_IOC_GET_ENCRYPTION_POLICY_EX, -1, -1 }, // linux/fscrypt.h
+     { "FS_IOC_GET_ENCRYPTION_POLICY", FS_IOC_GET_ENCRYPTION_POLICY, -1, -1 }, // linux/fscrypt.h
+     { "FS_IOC_GET_ENCRYPTION_PWSALT", FS_IOC_GET_ENCRYPTION_PWSALT, -1, -1 }, // linux/fscrypt.h
+@@ -624,17 +639,21 @@ const struct ioctl_entry ioctls_list[] = {
+     { "GENWQE_WRITE_REG16", GENWQE_WRITE_REG16, -1, -1 }, // linux/genwqe/genwqe_card.h
+     { "GENWQE_WRITE_REG32", GENWQE_WRITE_REG32, -1, -1 }, // linux/genwqe/genwqe_card.h
+     { "GENWQE_WRITE_REG64", GENWQE_WRITE_REG64, -1, -1 }, // linux/genwqe/genwqe_card.h
+-    { "GIGASET_BRKCHARS", GIGASET_BRKCHARS, -1, -1 }, // linux/gigaset_dev.h
+-    { "GIGASET_CONFIG", GIGASET_CONFIG, -1, -1 }, // linux/gigaset_dev.h
+-    { "GIGASET_REDIR", GIGASET_REDIR, -1, -1 }, // linux/gigaset_dev.h
+-    { "GIGASET_VERSION", GIGASET_VERSION, -1, -1 }, // linux/gigaset_dev.h
+     { "GPIO_GET_CHIPINFO_IOCTL", GPIO_GET_CHIPINFO_IOCTL, -1, -1 }, // linux/gpio.h
+     { "GPIO_GET_LINEEVENT_IOCTL", GPIO_GET_LINEEVENT_IOCTL, -1, -1 }, // linux/gpio.h
+     { "GPIO_GET_LINEHANDLE_IOCTL", GPIO_GET_LINEHANDLE_IOCTL, -1, -1 }, // linux/gpio.h
+     { "GPIO_GET_LINEINFO_IOCTL", GPIO_GET_LINEINFO_IOCTL, -1, -1 }, // linux/gpio.h
++    { "GPIO_GET_LINEINFO_UNWATCH_IOCTL", GPIO_GET_LINEINFO_UNWATCH_IOCTL, -1, -1 }, // linux/gpio.h
++    { "GPIO_GET_LINEINFO_WATCH_IOCTL", GPIO_GET_LINEINFO_WATCH_IOCTL, -1, -1 }, // linux/gpio.h
+     { "GPIOHANDLE_GET_LINE_VALUES_IOCTL", GPIOHANDLE_GET_LINE_VALUES_IOCTL, -1, -1 }, // linux/gpio.h
+     { "GPIOHANDLE_SET_CONFIG_IOCTL", GPIOHANDLE_SET_CONFIG_IOCTL, -1, -1 }, // linux/gpio.h
+     { "GPIOHANDLE_SET_LINE_VALUES_IOCTL", GPIOHANDLE_SET_LINE_VALUES_IOCTL, -1, -1 }, // linux/gpio.h
++    { "GPIO_V2_GET_LINEINFO_IOCTL", GPIO_V2_GET_LINEINFO_IOCTL, -1, -1 }, // linux/gpio.h
++    { "GPIO_V2_GET_LINEINFO_WATCH_IOCTL", GPIO_V2_GET_LINEINFO_WATCH_IOCTL, -1, -1 }, // linux/gpio.h
++    { "GPIO_V2_GET_LINE_IOCTL", GPIO_V2_GET_LINE_IOCTL, -1, -1 }, // linux/gpio.h
++    { "GPIO_V2_LINE_GET_VALUES_IOCTL", GPIO_V2_LINE_GET_VALUES_IOCTL, -1, -1 }, // linux/gpio.h
++    { "GPIO_V2_LINE_SET_CONFIG_IOCTL", GPIO_V2_LINE_SET_CONFIG_IOCTL, -1, -1 }, // linux/gpio.h
++    { "GPIO_V2_LINE_SET_VALUES_IOCTL", GPIO_V2_LINE_SET_VALUES_IOCTL, -1, -1 }, // linux/gpio.h
+     { "GSMIOC_DISABLE_NET", GSMIOC_DISABLE_NET, -1, -1 }, // linux/gsmmux.h
+     { "GSMIOC_ENABLE_NET", GSMIOC_ENABLE_NET, -1, -1 }, // linux/gsmmux.h
+     { "GSMIOC_GETCONF", GSMIOC_GETCONF, -1, -1 }, // linux/gsmmux.h
+@@ -732,6 +751,8 @@ const struct ioctl_entry ioctls_list[] = {
+     { "IOCTL_MEI_NOTIFY_SET", IOCTL_MEI_NOTIFY_SET, -1, -1 }, // linux/mei.h
+     { "IOCTL_VM_SOCKETS_GET_LOCAL_CID", IOCTL_VM_SOCKETS_GET_LOCAL_CID, -1, -1 }, // linux/vm_sockets.h
+     { "IOCTL_WDM_MAX_COMMAND", IOCTL_WDM_MAX_COMMAND, -1, -1 }, // linux/usb/cdc-wdm.h
++    { "IOC_WATCH_QUEUE_SET_FILTER", IOC_WATCH_QUEUE_SET_FILTER, -1, -1 }, // linux/watch_queue.h
++    { "IOC_WATCH_QUEUE_SET_SIZE", IOC_WATCH_QUEUE_SET_SIZE, -1, -1 }, // linux/watch_queue.h
+     { "IPMI_BMC_IOCTL_CLEAR_SMS_ATN", IPMI_BMC_IOCTL_CLEAR_SMS_ATN, -1, -1 }, // linux/ipmi_bmc.h
+     { "IPMI_BMC_IOCTL_FORCE_ABORT", IPMI_BMC_IOCTL_FORCE_ABORT, -1, -1 }, // linux/ipmi_bmc.h
+     { "IPMI_BMC_IOCTL_SET_SMS_ATN", IPMI_BMC_IOCTL_SET_SMS_ATN, -1, -1 }, // linux/ipmi_bmc.h
+@@ -796,9 +817,6 @@ const struct ioctl_entry ioctls_list[] = {
+     { "MATROXFB_GET_OUTPUT_MODE", MATROXFB_GET_OUTPUT_MODE, -1, -1 }, // linux/matroxfb.h
+     { "MATROXFB_SET_OUTPUT_CONNECTION", MATROXFB_SET_OUTPUT_CONNECTION, -1, -1 }, // linux/matroxfb.h
+     { "MATROXFB_SET_OUTPUT_MODE", MATROXFB_SET_OUTPUT_MODE, -1, -1 }, // linux/matroxfb.h
+-    { "MCE_GETCLEAR_FLAGS", MCE_GETCLEAR_FLAGS, -1, -1 }, // asm/mce.h
+-    { "MCE_GET_LOG_LEN", MCE_GET_LOG_LEN, -1, -1 }, // asm/mce.h
+-    { "MCE_GET_RECORD_LEN", MCE_GET_RECORD_LEN, -1, -1 }, // asm/mce.h
+     { "MEDIA_IOC_DEVICE_INFO", MEDIA_IOC_DEVICE_INFO, -1, -1 }, // linux/media.h
+     { "MEDIA_IOC_ENUM_ENTITIES", MEDIA_IOC_ENUM_ENTITIES, -1, -1 }, // linux/media.h
+     { "MEDIA_IOC_ENUM_LINKS", MEDIA_IOC_ENUM_LINKS, -1, -1 }, // linux/media.h
+@@ -843,9 +861,6 @@ const struct ioctl_entry ioctls_list[] = {
+     { "MGSL_IOCTXENABLE", MGSL_IOCTXENABLE, -1, -1 }, // linux/synclink.h
+     { "MGSL_IOCWAITEVENT", MGSL_IOCWAITEVENT, -1, -1 }, // linux/synclink.h
+     { "MGSL_IOCWAITGPIO", MGSL_IOCWAITGPIO, -1, -1 }, // linux/synclink.h
+-    { "MIC_VIRTIO_ADD_DEVICE", MIC_VIRTIO_ADD_DEVICE, -1, -1 }, // linux/mic_ioctl.h
+-    { "MIC_VIRTIO_CONFIG_CHANGE", MIC_VIRTIO_CONFIG_CHANGE, -1, -1 }, // linux/mic_ioctl.h
+-    { "MIC_VIRTIO_COPY_DESC", MIC_VIRTIO_COPY_DESC, -1, -1 }, // linux/mic_ioctl.h
+     { "MMTIMER_GETBITS", MMTIMER_GETBITS, -1, -1 }, // linux/mmtimer.h
+     { "MMTIMER_GETCOUNTER", MMTIMER_GETCOUNTER, -1, -1 }, // linux/mmtimer.h
+     { "MMTIMER_GETFREQ", MMTIMER_GETFREQ, -1, -1 }, // linux/mmtimer.h
+@@ -856,16 +871,6 @@ const struct ioctl_entry ioctls_list[] = {
+     { "MTIOCGET", MTIOCGET, -1, -1 }, // linux/mtio.h
+     { "MTIOCPOS", MTIOCPOS, -1, -1 }, // linux/mtio.h
+     { "MTIOCTOP", MTIOCTOP, -1, -1 }, // linux/mtio.h
+-    { "MTRRIOC_ADD_ENTRY", MTRRIOC_ADD_ENTRY, -1, -1 }, // asm/mtrr.h
+-    { "MTRRIOC_ADD_PAGE_ENTRY", MTRRIOC_ADD_PAGE_ENTRY, -1, -1 }, // asm/mtrr.h
+-    { "MTRRIOC_DEL_ENTRY", MTRRIOC_DEL_ENTRY, -1, -1 }, // asm/mtrr.h
+-    { "MTRRIOC_DEL_PAGE_ENTRY", MTRRIOC_DEL_PAGE_ENTRY, -1, -1 }, // asm/mtrr.h
+-    { "MTRRIOC_GET_ENTRY", MTRRIOC_GET_ENTRY, -1, -1 }, // asm/mtrr.h
+-    { "MTRRIOC_GET_PAGE_ENTRY", MTRRIOC_GET_PAGE_ENTRY, -1, -1 }, // asm/mtrr.h
+-    { "MTRRIOC_KILL_ENTRY", MTRRIOC_KILL_ENTRY, -1, -1 }, // asm/mtrr.h
+-    { "MTRRIOC_KILL_PAGE_ENTRY", MTRRIOC_KILL_PAGE_ENTRY, -1, -1 }, // asm/mtrr.h
+-    { "MTRRIOC_SET_ENTRY", MTRRIOC_SET_ENTRY, -1, -1 }, // asm/mtrr.h
+-    { "MTRRIOC_SET_PAGE_ENTRY", MTRRIOC_SET_PAGE_ENTRY, -1, -1 }, // asm/mtrr.h
+     { "NBD_CLEAR_QUE", NBD_CLEAR_QUE, -1, -1 }, // linux/nbd.h
+     { "NBD_CLEAR_SOCK", NBD_CLEAR_SOCK, -1, -1 }, // linux/nbd.h
+     { "NBD_DISCONNECT", NBD_DISCONNECT, -1, -1 }, // linux/nbd.h
+@@ -887,6 +892,11 @@ const struct ioctl_entry ioctls_list[] = {
+     { "ND_IOCTL_GET_CONFIG_SIZE", ND_IOCTL_GET_CONFIG_SIZE, -1, -1 }, // linux/ndctl.h
+     { "ND_IOCTL_SET_CONFIG_DATA", ND_IOCTL_SET_CONFIG_DATA, -1, -1 }, // linux/ndctl.h
+     { "ND_IOCTL_VENDOR", ND_IOCTL_VENDOR, -1, -1 }, // linux/ndctl.h
++    { "NE_ADD_VCPU", NE_ADD_VCPU, -1, -1 }, // linux/nitro_enclaves.h
++    { "NE_CREATE_VM", NE_CREATE_VM, -1, -1 }, // linux/nitro_enclaves.h
++    { "NE_GET_IMAGE_LOAD_INFO", NE_GET_IMAGE_LOAD_INFO, -1, -1 }, // linux/nitro_enclaves.h
++    { "NE_SET_USER_MEMORY_REGION", NE_SET_USER_MEMORY_REGION, -1, -1 }, // linux/nitro_enclaves.h
++    { "NE_START_ENCLAVE", NE_START_ENCLAVE, -1, -1 }, // linux/nitro_enclaves.h
+     { "NET_ADD_IF", NET_ADD_IF, -1, -1 }, // linux/dvb/net.h
+     { "__NET_ADD_IF_OLD", __NET_ADD_IF_OLD, -1, -1 }, // linux/dvb/net.h
+     { "NET_GET_IF", NET_GET_IF, -1, -1 }, // linux/dvb/net.h
+@@ -936,6 +946,7 @@ const struct ioctl_entry ioctls_list[] = {
+     { "OTPSELECT", OTPSELECT, -1, -1 }, // mtd/mtd-abi.h
+     { "PACKET_CTRL_CMD", PACKET_CTRL_CMD, -1, -1 }, // linux/pktcdvd.h
+     { "PCITEST_BAR", PCITEST_BAR, -1, -1 }, // linux/pcitest.h
++    { "PCITEST_CLEAR_IRQ", PCITEST_CLEAR_IRQ, -1, -1 }, // linux/pcitest.h
+     { "PCITEST_COPY", PCITEST_COPY, -1, -1 }, // linux/pcitest.h
+     { "PCITEST_GET_IRQTYPE", PCITEST_GET_IRQTYPE, -1, -1 }, // linux/pcitest.h
+     { "PCITEST_LEGACY_IRQ", PCITEST_LEGACY_IRQ, -1, -1 }, // linux/pcitest.h
+@@ -1067,6 +1078,8 @@ const struct ioctl_entry ioctls_list[] = {
+     { "RNDZAPENTCNT", RNDZAPENTCNT, -1, -1 }, // linux/random.h
+     { "RPMSG_CREATE_EPT_IOCTL", RPMSG_CREATE_EPT_IOCTL, -1, -1 }, // linux/rpmsg.h
+     { "RPMSG_DESTROY_EPT_IOCTL", RPMSG_DESTROY_EPT_IOCTL, -1, -1 }, // linux/rpmsg.h
++    { "RPROC_GET_SHUTDOWN_ON_RELEASE", RPROC_GET_SHUTDOWN_ON_RELEASE, -1, -1 }, // linux/remoteproc_cdev.h
++    { "RPROC_SET_SHUTDOWN_ON_RELEASE", RPROC_SET_SHUTDOWN_ON_RELEASE, -1, -1 }, // linux/remoteproc_cdev.h
+     { "RTC_AIE_OFF", RTC_AIE_OFF, -1, -1 }, // linux/rtc.h
+     { "RTC_AIE_ON", RTC_AIE_ON, -1, -1 }, // linux/rtc.h
+     { "RTC_ALM_READ", RTC_ALM_READ, -1, -1 }, // linux/rtc.h
+@@ -1234,6 +1247,8 @@ const struct ioctl_entry ioctls_list[] = {
+     { "SNDRV_PCM_IOCTL_STATUS_EXT", SNDRV_PCM_IOCTL_STATUS_EXT, -1, -1 }, // sound/asound.h
+     { "SNDRV_PCM_IOCTL_STATUS", SNDRV_PCM_IOCTL_STATUS, -1, -1 }, // sound/asound.h
+     { "SNDRV_PCM_IOCTL_SW_PARAMS", SNDRV_PCM_IOCTL_SW_PARAMS, -1, -1 }, // sound/asound.h
++    { "__SNDRV_PCM_IOCTL_SYNC_PTR64", __SNDRV_PCM_IOCTL_SYNC_PTR64, -1, -1 }, // sound/asound.h
++    { "__SNDRV_PCM_IOCTL_SYNC_PTR", __SNDRV_PCM_IOCTL_SYNC_PTR, -1, -1 }, // sound/asound.h
+     { "SNDRV_PCM_IOCTL_SYNC_PTR", SNDRV_PCM_IOCTL_SYNC_PTR, -1, -1 }, // sound/asound.h
+     { "SNDRV_PCM_IOCTL_TSTAMP", SNDRV_PCM_IOCTL_TSTAMP, -1, -1 }, // sound/asound.h
+     { "SNDRV_PCM_IOCTL_TTSTAMP", SNDRV_PCM_IOCTL_TTSTAMP, -1, -1 }, // sound/asound.h
+@@ -1285,7 +1300,8 @@ const struct ioctl_entry ioctls_list[] = {
+     { "SNDRV_TIMER_IOCTL_START", SNDRV_TIMER_IOCTL_START, -1, -1 }, // sound/asound.h
+     { "SNDRV_TIMER_IOCTL_STATUS", SNDRV_TIMER_IOCTL_STATUS, -1, -1 }, // sound/asound.h
+     { "SNDRV_TIMER_IOCTL_STOP", SNDRV_TIMER_IOCTL_STOP, -1, -1 }, // sound/asound.h
+-    { "SNDRV_TIMER_IOCTL_TREAD", SNDRV_TIMER_IOCTL_TREAD, -1, -1 }, // sound/asound.h
++    { "SNDRV_TIMER_IOCTL_TREAD64", SNDRV_TIMER_IOCTL_TREAD64, -1, -1 }, // sound/asound.h
++    { "SNDRV_TIMER_IOCTL_TREAD_OLD", SNDRV_TIMER_IOCTL_TREAD_OLD, -1, -1 }, // sound/asound.h
+     { "SONET_CLRDIAG", SONET_CLRDIAG, -1, -1 }, // linux/sonet.h
+     { "SONET_GETDIAG", SONET_GETDIAG, -1, -1 }, // linux/sonet.h
+     { "SONET_GETFRAMING", SONET_GETFRAMING, -1, -1 }, // linux/sonet.h
+@@ -1374,6 +1390,9 @@ const struct ioctl_entry ioctls_list[] = {
+     { "TUNSETVNETBE", TUNSETVNETBE, -1, -1 }, // linux/if_tun.h
+     { "TUNSETVNETHDRSZ", TUNSETVNETHDRSZ, -1, -1 }, // linux/if_tun.h
+     { "TUNSETVNETLE", TUNSETVNETLE, -1, -1 }, // linux/if_tun.h
++    { "UACCE_CMD_PUT_Q", UACCE_CMD_PUT_Q, -1, -1 }, // misc/uacce/uacce.h
++    { "UACCE_CMD_QM_SET_QP_CTX", UACCE_CMD_QM_SET_QP_CTX, -1, -1 }, // misc/uacce/hisi_qm.h
++    { "UACCE_CMD_START_Q", UACCE_CMD_START_Q, -1, -1 }, // misc/uacce/uacce.h
+     { "UBI_IOCATT", UBI_IOCATT, -1, -1 }, // mtd/ubi-user.h
+     { "UBI_IOCDET", UBI_IOCDET, -1, -1 }, // mtd/ubi-user.h
+     { "UBI_IOCEBCH", UBI_IOCEBCH, -1, -1 }, // mtd/ubi-user.h
+@@ -1402,6 +1421,7 @@ const struct ioctl_entry ioctls_list[] = {
+     { "UFFDIO_REGISTER", UFFDIO_REGISTER, -1, -1 }, // linux/userfaultfd.h
+     { "UFFDIO_UNREGISTER", UFFDIO_UNREGISTER, -1, -1 }, // linux/userfaultfd.h
+     { "UFFDIO_WAKE", UFFDIO_WAKE, -1, -1 }, // linux/userfaultfd.h
++    { "UFFDIO_WRITEPROTECT", UFFDIO_WRITEPROTECT, -1, -1 }, // linux/userfaultfd.h
+     { "UFFDIO_ZEROPAGE", UFFDIO_ZEROPAGE, -1, -1 }, // linux/userfaultfd.h
+     { "UI_ABS_SETUP", UI_ABS_SETUP, -1, -1 }, // linux/uinput.h
+     { "UI_BEGIN_FF_ERASE", UI_BEGIN_FF_ERASE, -1, -1 }, // linux/uinput.h
+@@ -1456,6 +1476,22 @@ const struct ioctl_entry ioctls_list[] = {
+     { "USBDEVFS_SETINTERFACE", USBDEVFS_SETINTERFACE, -1, -1 }, // linux/usbdevice_fs.h
+     { "USBDEVFS_SUBMITURB", USBDEVFS_SUBMITURB, -1, -1 }, // linux/usbdevice_fs.h
+     { "USBDEVFS_WAIT_FOR_RESUME", USBDEVFS_WAIT_FOR_RESUME, -1, -1 }, // linux/usbdevice_fs.h
++    { "USB_RAW_IOCTL_CONFIGURE", USB_RAW_IOCTL_CONFIGURE, -1, -1 }, // linux/usb/raw_gadget.h
++    { "USB_RAW_IOCTL_EP0_READ", USB_RAW_IOCTL_EP0_READ, -1, -1 }, // linux/usb/raw_gadget.h
++    { "USB_RAW_IOCTL_EP0_STALL", USB_RAW_IOCTL_EP0_STALL, -1, -1 }, // linux/usb/raw_gadget.h
++    { "USB_RAW_IOCTL_EP0_WRITE", USB_RAW_IOCTL_EP0_WRITE, -1, -1 }, // linux/usb/raw_gadget.h
++    { "USB_RAW_IOCTL_EP_CLEAR_HALT", USB_RAW_IOCTL_EP_CLEAR_HALT, -1, -1 }, // linux/usb/raw_gadget.h
++    { "USB_RAW_IOCTL_EP_DISABLE", USB_RAW_IOCTL_EP_DISABLE, -1, -1 }, // linux/usb/raw_gadget.h
++    { "USB_RAW_IOCTL_EP_ENABLE", USB_RAW_IOCTL_EP_ENABLE, -1, -1 }, // linux/usb/raw_gadget.h
++    { "USB_RAW_IOCTL_EP_READ", USB_RAW_IOCTL_EP_READ, -1, -1 }, // linux/usb/raw_gadget.h
++    { "USB_RAW_IOCTL_EP_SET_HALT", USB_RAW_IOCTL_EP_SET_HALT, -1, -1 }, // linux/usb/raw_gadget.h
++    { "USB_RAW_IOCTL_EP_SET_WEDGE", USB_RAW_IOCTL_EP_SET_WEDGE, -1, -1 }, // linux/usb/raw_gadget.h
++    { "USB_RAW_IOCTL_EPS_INFO", USB_RAW_IOCTL_EPS_INFO, -1, -1 }, // linux/usb/raw_gadget.h
++    { "USB_RAW_IOCTL_EP_WRITE", USB_RAW_IOCTL_EP_WRITE, -1, -1 }, // linux/usb/raw_gadget.h
++    { "USB_RAW_IOCTL_EVENT_FETCH", USB_RAW_IOCTL_EVENT_FETCH, -1, -1 }, // linux/usb/raw_gadget.h
++    { "USB_RAW_IOCTL_INIT", USB_RAW_IOCTL_INIT, -1, -1 }, // linux/usb/raw_gadget.h
++    { "USB_RAW_IOCTL_RUN", USB_RAW_IOCTL_RUN, -1, -1 }, // linux/usb/raw_gadget.h
++    { "USB_RAW_IOCTL_VBUS_DRAW", USB_RAW_IOCTL_VBUS_DRAW, -1, -1 }, // linux/usb/raw_gadget.h
+     { "USBTMC488_IOCTL_GET_CAPS", USBTMC488_IOCTL_GET_CAPS, -1, -1 }, // linux/usb/tmc.h
+     { "USBTMC488_IOCTL_GOTO_LOCAL", USBTMC488_IOCTL_GOTO_LOCAL, -1, -1 }, // linux/usb/tmc.h
+     { "USBTMC488_IOCTL_LOCAL_LOCKOUT", USBTMC488_IOCTL_LOCAL_LOCKOUT, -1, -1 }, // linux/usb/tmc.h
+@@ -1485,9 +1521,11 @@ const struct ioctl_entry ioctls_list[] = {
+     { "UVCIOC_CTRL_MAP", UVCIOC_CTRL_MAP, -1, -1 }, // linux/uvcvideo.h
+     { "UVCIOC_CTRL_QUERY", UVCIOC_CTRL_QUERY, -1, -1 }, // linux/uvcvideo.h
+     { "UVCIOC_SEND_RESPONSE", UVCIOC_SEND_RESPONSE, -1, -1 }, // linux/usb/g_uvc.h
++    { "VBG_IOCTL_VMMDEV_REQUEST_BIG", VBG_IOCTL_VMMDEV_REQUEST_BIG, -1, -1 }, // linux/vboxguest.h
+     { "VFAT_IOCTL_READDIR_BOTH", VFAT_IOCTL_READDIR_BOTH, -1, -1 }, // linux/msdos_fs.h
+     { "VFAT_IOCTL_READDIR_SHORT", VFAT_IOCTL_READDIR_SHORT, -1, -1 }, // linux/msdos_fs.h
+     { "VFIO_CHECK_EXTENSION", VFIO_CHECK_EXTENSION, -1, -1 }, // linux/vfio.h
++    { "VFIO_DEVICE_FEATURE", VFIO_DEVICE_FEATURE, -1, -1 }, // linux/vfio.h
+     { "VFIO_DEVICE_GET_GFX_DMABUF", VFIO_DEVICE_GET_GFX_DMABUF, -1, -1 }, // linux/vfio.h
+     { "VFIO_DEVICE_GET_INFO", VFIO_DEVICE_GET_INFO, -1, -1 }, // linux/vfio.h
+     { "VFIO_DEVICE_GET_IRQ_INFO", VFIO_DEVICE_GET_IRQ_INFO, -1, -1 }, // linux/vfio.h
+@@ -1504,6 +1542,7 @@ const struct ioctl_entry ioctls_list[] = {
+     { "VFIO_GROUP_GET_STATUS", VFIO_GROUP_GET_STATUS, -1, -1 }, // linux/vfio.h
+     { "VFIO_GROUP_SET_CONTAINER", VFIO_GROUP_SET_CONTAINER, -1, -1 }, // linux/vfio.h
+     { "VFIO_GROUP_UNSET_CONTAINER", VFIO_GROUP_UNSET_CONTAINER, -1, -1 }, // linux/vfio.h
++    { "VFIO_IOMMU_DIRTY_PAGES", VFIO_IOMMU_DIRTY_PAGES, -1, -1 }, // linux/vfio.h
+     { "VFIO_IOMMU_DISABLE", VFIO_IOMMU_DISABLE, -1, -1 }, // linux/vfio.h
+     { "VFIO_IOMMU_ENABLE", VFIO_IOMMU_ENABLE, -1, -1 }, // linux/vfio.h
+     { "VFIO_IOMMU_GET_INFO", VFIO_IOMMU_GET_INFO, -1, -1 }, // linux/vfio.h
+@@ -1541,6 +1580,15 @@ const struct ioctl_entry ioctls_list[] = {
+     { "VHOST_SET_VRING_ERR", VHOST_SET_VRING_ERR, -1, -1 }, // linux/vhost.h
+     { "VHOST_SET_VRING_KICK", VHOST_SET_VRING_KICK, -1, -1 }, // linux/vhost.h
+     { "VHOST_SET_VRING_NUM", VHOST_SET_VRING_NUM, -1, -1 }, // linux/vhost.h
++    { "VHOST_VDPA_GET_CONFIG", VHOST_VDPA_GET_CONFIG, -1, -1 }, // linux/vhost.h
++    { "VHOST_VDPA_GET_DEVICE_ID", VHOST_VDPA_GET_DEVICE_ID, -1, -1 }, // linux/vhost.h
++    { "VHOST_VDPA_GET_IOVA_RANGE", VHOST_VDPA_GET_IOVA_RANGE, -1, -1 }, // linux/vhost.h
++    { "VHOST_VDPA_GET_STATUS", VHOST_VDPA_GET_STATUS, -1, -1 }, // linux/vhost.h
++    { "VHOST_VDPA_GET_VRING_NUM", VHOST_VDPA_GET_VRING_NUM, -1, -1 }, // linux/vhost.h
++    { "VHOST_VDPA_SET_CONFIG_CALL", VHOST_VDPA_SET_CONFIG_CALL, -1, -1 }, // linux/vhost.h
++    { "VHOST_VDPA_SET_CONFIG", VHOST_VDPA_SET_CONFIG, -1, -1 }, // linux/vhost.h
++    { "VHOST_VDPA_SET_STATUS", VHOST_VDPA_SET_STATUS, -1, -1 }, // linux/vhost.h
++    { "VHOST_VDPA_SET_VRING_ENABLE", VHOST_VDPA_SET_VRING_ENABLE, -1, -1 }, // linux/vhost.h
+     { "VHOST_VSOCK_SET_GUEST_CID", VHOST_VSOCK_SET_GUEST_CID, -1, -1 }, // linux/vhost.h
+     { "VHOST_VSOCK_SET_RUNNING", VHOST_VSOCK_SET_RUNNING, -1, -1 }, // linux/vhost.h
+     { "VIDEO_CLEAR_BUFFER", VIDEO_CLEAR_BUFFER, -1, -1 }, // linux/dvb/video.h
+@@ -1653,6 +1701,7 @@ const struct ioctl_entry ioctls_list[] = {
+     { "VIDIOC_SUBDEV_G_FRAME_INTERVAL", VIDIOC_SUBDEV_G_FRAME_INTERVAL, -1, -1 }, // linux/v4l2-subdev.h
+     { "VIDIOC_SUBDEV_G_SELECTION", VIDIOC_SUBDEV_G_SELECTION, -1, -1 }, // linux/v4l2-subdev.h
+     { "VIDIOC_SUBDEV_G_STD", VIDIOC_SUBDEV_G_STD, -1, -1 }, // linux/v4l2-subdev.h
++    { "VIDIOC_SUBDEV_QUERYCAP", VIDIOC_SUBDEV_QUERYCAP, -1, -1 }, // linux/v4l2-subdev.h
+     { "VIDIOC_SUBDEV_QUERY_DV_TIMINGS", VIDIOC_SUBDEV_QUERY_DV_TIMINGS, -1, -1 }, // linux/v4l2-subdev.h
+     { "VIDIOC_SUBDEV_QUERYSTD", VIDIOC_SUBDEV_QUERYSTD, -1, -1 }, // linux/v4l2-subdev.h
+     { "VIDIOC_SUBDEV_S_CROP", VIDIOC_SUBDEV_S_CROP, -1, -1 }, // linux/v4l2-subdev.h
+@@ -1680,8 +1729,6 @@ const struct ioctl_entry ioctls_list[] = {
+     { "WDIOC_SETOPTIONS", WDIOC_SETOPTIONS, -1, -1 }, // linux/watchdog.h
+     { "WDIOC_SETPRETIMEOUT", WDIOC_SETPRETIMEOUT, -1, -1 }, // linux/watchdog.h
+     { "WDIOC_SETTIMEOUT", WDIOC_SETTIMEOUT, -1, -1 }, // linux/watchdog.h
+-    { "X86_IOC_RDMSR_REGS", X86_IOC_RDMSR_REGS, -1, -1 }, // asm/msr.h
+-    { "X86_IOC_WRMSR_REGS", X86_IOC_WRMSR_REGS, -1, -1 }, // asm/msr.h
+     { "XSDFEC_CLEAR_STATS", XSDFEC_CLEAR_STATS, -1, -1 }, // misc/xilinx_sdfec.h
+     { "XSDFEC_GET_CONFIG", XSDFEC_GET_CONFIG, -1, -1 }, // misc/xilinx_sdfec.h
+     { "XSDFEC_GET_STATS", XSDFEC_GET_STATS, -1, -1 }, // misc/xilinx_sdfec.h
+diff --git a/ioctls_list.h b/ioctls_list.h
+index 2cdce48..4278d42 100644
+--- a/ioctls_list.h
++++ b/ioctls_list.h
+@@ -14,5 +14,6 @@ struct ioctl_entry {
+ };
+ extern const struct ioctl_entry ioctls_list[];
+ 
++#define PAGE_SIZE 4096
+ #endif /* IOCTLS_LIST_H */
+ 

@@ -1,0 +1,12 @@
+Source: ioctl
+Maintainer: Dean Scarff <dos@scarff.id.au>
+Section: utils
+Priority: optional
+Standards-Version: 4.3.0
+Build-Depends: debhelper (>= 10)
+
+Package: ioctl
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: tool to call arbitrary ioctl on devices
+ ioctl is a command line tool for making ioctl system calls.

@@ -1,0 +1,33 @@
+From: Dean Scarff <dos@scarff.id.au>
+Date: Sat, 10 Jul 2021 15:48:43 +1000
+Subject: fix install directory
+
+Fix the install rule to respect DESTDIR and use /usr as the PREFIX
+---
+ Makefile | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 53000da..83b80bf 100644
+--- a/Makefile
++++ b/Makefile
+@@ -4,7 +4,8 @@
+ #
+ CC = gcc
+ CFLAGS= -Wall
+-PREFIX = /usr/local
++PREFIX = /usr
++DESTDIR=
+ 
+ all: ioctl
+ 
+@@ -28,7 +29,8 @@ distclean: clean
+ 	-rm ioctl
+ 
+ install:
+-	install -s -D -m 755 ioctl $(PREFIX)/bin
++	mkdir -p $(DESTDIR)$(PREFIX)/bin
++	install -s -D -m 755 ioctl $(DESTDIR)$(PREFIX)/bin
+ 
+ -include $(wildcard *.d)
+ 

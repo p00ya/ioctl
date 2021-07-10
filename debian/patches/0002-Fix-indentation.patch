@@ -1,0 +1,30 @@
+From: =?utf-8?b?SsOpcsO0bWUgUG91aWxsZXI=?= <jerome.pouiller@silabs.com>
+Date: Thu, 1 Oct 2020 10:30:18 +0200
+Subject: Fix indentation
+
+---
+ ioctl.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/ioctl.c b/ioctl.c
+index 39ccdef..8b4ac05 100644
+--- a/ioctl.c
++++ b/ioctl.c
+@@ -54,7 +54,7 @@ void doit(const char *file, unsigned long ioctl_nr, void *buf) {
+     int ret;
+     int fd;
+     int i;
+-	int ioctl_errno;
++    int ioctl_errno;
+ 
+     fd = open(file, O_RDWR);
+     if (fd < 0 && (errno == EPERM || errno == EACCES))
+@@ -72,7 +72,7 @@ void doit(const char *file, unsigned long ioctl_nr, void *buf) {
+             sigaction(i, &act, NULL);
+     }
+     ret = ioctl(fd, ioctl_nr, buf);
+-	ioctl_errno = errno;
++    ioctl_errno = errno;
+     memset(&act, 0, sizeof(act));
+     act.sa_handler = NULL;
+     for (i = 0; i < NSIG; i++) {
